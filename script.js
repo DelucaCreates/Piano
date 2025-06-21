@@ -4,9 +4,9 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Define 2 virtual keys
+// 2 virtual keys, positioned higher on the screen
 const keys = [
-  { note: 'C', x: 0.3, y: 0.4 }, // relative to screen
+  { note: 'C', x: 0.3, y: 0.4 }, // 30% from left, 40% from top
   { note: 'D', x: 0.6, y: 0.4 }
 ];
 
@@ -17,7 +17,7 @@ function playNote(note) {
     const audio = new Audio(`sounds/${note}.mp3`);
     audio.play();
     lastPlayed[note] = true;
-    setTimeout(() => lastPlayed[note] = false, 300); // prevent repeat
+    setTimeout(() => lastPlayed[note] = false, 300);
   }
 }
 
@@ -27,9 +27,9 @@ function isFingerOnKey(fx, fy, keyX, keyY, radius = 50) {
   return Math.sqrt(dx * dx + dy * dy) < radius;
 }
 
-// Setup MediaPipe
+// MediaPipe setup
 const hands = new Hands({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
 
 hands.setOptions({
@@ -43,19 +43,19 @@ hands.onResults((results) => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   for (const landmarks of results.multiHandLandmarks) {
-    // Check all 5 fingertips
+    // Only use finger tips: thumb (4), index (8), middle (12), ring (16), pinky (20)
     [4, 8, 12, 16, 20].forEach((i) => {
       const point = landmarks[i];
       const fx = point.x * canvas.width;
       const fy = point.y * canvas.height;
 
-      // Draw fingertip
+      // Draw finger dot
       ctx.beginPath();
       ctx.arc(fx, fy, 10, 0, 2 * Math.PI);
       ctx.fillStyle = 'red';
       ctx.fill();
 
-      // Check if finger touches a virtual key
+      // Check overlap with keys
       keys.forEach((key) => {
         const keyX = key.x * canvas.width;
         const keyY = key.y * canvas.height;
@@ -66,7 +66,7 @@ hands.onResults((results) => {
     });
   }
 
-  // Draw virtual key markers
+  // Draw key markers (for testing)
   keys.forEach((key) => {
     const x = key.x * canvas.width;
     const y = key.y * canvas.height;
@@ -77,12 +77,20 @@ hands.onResults((results) => {
   });
 });
 
-// Start camera
-const camera = new Camera(video, {
-  onFrame: async () => {
-    await hands.send({ image: video });
-  },
-  width: 640,
-  height: 480,
+// Use back camera
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: { exact: "environment" } }
+}).then((stream) => {
+  video.srcObject = stream;
+
+  const camera = new Camera(video, {
+    onFrame: async () => {
+      await hands.send({ image: video });
+    },
+    width: 640,
+    height: 480,
+  });
+  camera.start();
+}).catch((err) => {
+  console.error("Camera access error:", err);
 });
-camera.start();
